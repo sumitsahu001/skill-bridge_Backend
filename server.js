@@ -61,6 +61,8 @@ app.get("/api/health", (req, res) => {
 // routes
 app.use("/api/users", userRoutes); // /register, /me
 app.use("/api/auth", authRoutes);  // /login
+app.use("/api/profile", require("./routes/profile.routes"));
+app.use("/api/projects", require("./routes/project.routes"));
 
 // 404 + errors
 app.use(notFound);
