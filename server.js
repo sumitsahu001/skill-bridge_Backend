@@ -63,6 +63,8 @@ app.use("/api/users", userRoutes); // /register, /me
 app.use("/api/auth", authRoutes);  // /login
 app.use("/api/profile", require("./routes/profile.routes"));
 app.use("/api/projects", require("./routes/project.routes"));
+app.use("/api/jobs",    require("./routes/jobListing.routes"));
+app.use("/api/stats",  require("./routes/stats.routes"));
 
 // 404 + errors
 app.use(notFound);

@@ -55,4 +55,49 @@ router.get("/me", auth, async (req, res, next) => {
   }
 });
 
+// PATCH /api/users/change-password
+// Verifies current password then replaces it with the new one
+router.patch("/change-password", auth, async (req, res, next) => {
+  const { currentPassword, newPassword } = req.body;
+
+  if (!currentPassword || !newPassword) {
+    return res.status(400).json({ message: "Both current and new password are required" });
+  }
+  if (newPassword.length < 6) {
+    return res.status(400).json({ message: "New password must be at least 6 characters" });
+  }
+
+  try {
+    // Fetch user — password is available on raw document (toJSON strips it, not the DB query)
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    // Compare current password against stored hash
+    const isMatch = await bcrypt.compare(currentPassword, user.password);
+    if (!isMatch) {
+      return res.status(400).json({ message: "Current password is incorrect" });
+    }
+
+    // Hash and save new password
+    const salt = await bcrypt.genSalt(10);
+    user.password = await bcrypt.hash(newPassword, salt);
+    await user.save();
+
+    res.json({ message: "Password updated successfully" });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// DELETE /api/users/me
+// Permanently deletes the user account
+router.delete("/me", auth, async (req, res, next) => {
+  try {
+    await User.findByIdAndDelete(req.user.id);
+    res.json({ message: "Account deleted successfully" });
+  } catch (err) {
+    next(err);
+  }
+});
+
 module.exports = router;
