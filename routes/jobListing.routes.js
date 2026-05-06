@@ -5,6 +5,7 @@ const { body, validationResult } = require("express-validator");
 const auth = require("../middleware/auth");
 const requireRole = require("../middleware/requireRole");
 const JobListing = require("../models/JobListing");
+const Activity = require("../models/Activity");
 
 // ─── Validation rules ────────────────────────────────────────────────────────
 
@@ -140,6 +141,15 @@ router.post(
       });
 
       await listing.save();
+
+      // log activity
+      await Activity.create({
+        user: req.user.id,
+        userName: req.user.name,
+        action: 'JOB_POSTED',
+        target: title
+      });
+
       res.status(201).json(listing);
     } catch (err) {
       console.error(err.message);
@@ -176,6 +186,14 @@ router.post("/:id/apply", auth, requireRole("freelancer"), async (req, res) => {
 
     listing.applicants.push(req.user.id);
     await listing.save();
+
+    // log activity
+    await Activity.create({
+      user: req.user.id,
+      userName: req.user.name,
+      action: 'APPLICATION_SUBMITTED',
+      target: listing.title
+    });
 
     res.json({ message: "Application submitted successfully" });
   } catch (err) {
@@ -222,6 +240,14 @@ router.patch("/:id/close", auth, requireRole("client"), async (req, res) => {
 
     listing.status = "Closed";
     await listing.save();
+
+    // log activity
+    await Activity.create({
+      user: req.user.id,
+      userName: req.user.name,
+      action: 'JOB_CLOSED',
+      target: listing.title
+    });
 
     res.json({ message: "Listing closed successfully", listing });
   } catch (err) {

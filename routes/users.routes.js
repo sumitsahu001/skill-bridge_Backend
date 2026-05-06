@@ -2,6 +2,10 @@
 const express = require("express");
 const bcrypt = require("bcryptjs");
 const User = require("../models/User");
+const Profile = require("../models/Profile");
+const Project = require("../models/Project");
+const JobListing = require("../models/JobListing");
+const Activity = require("../models/Activity");
 const { signToken } = require("../utils/jwt");
 const auth = require("../middleware/auth");
 const { registerRules, runValidation } = require("../middleware/validate");
@@ -33,6 +37,14 @@ router.post("/register", registerRules, runValidation, async (req, res, next) =>
 
     // sign token
     const token = signToken({ id: user._id, role: user.role });
+
+    // log activity
+    await Activity.create({
+      user: user._id,
+      userName: user.name,
+      action: 'USER_REGISTERED',
+      target: user.role
+    });
 
     // respond
     return res.status(201).json({
@@ -78,6 +90,11 @@ router.patch("/change-password", auth, async (req, res, next) => {
       return res.status(400).json({ message: "Current password is incorrect" });
     }
 
+    // Ensure new password is not the same as current
+    if (currentPassword === newPassword) {
+      return res.status(400).json({ message: "New password cannot be the same as the current password" });
+    }
+
     // Hash and save new password
     const salt = await bcrypt.genSalt(10);
     user.password = await bcrypt.hash(newPassword, salt);
@@ -90,11 +107,39 @@ router.patch("/change-password", auth, async (req, res, next) => {
 });
 
 // DELETE /api/users/me
-// Permanently deletes the user account
+// Permanently deletes the user account and all associated data
 router.delete("/me", auth, async (req, res, next) => {
   try {
-    await User.findByIdAndDelete(req.user.id);
-    res.json({ message: "Account deleted successfully" });
+    const userId = req.user.id;
+
+    // 1. Delete Profile
+    await Profile.findOneAndDelete({ user: userId });
+
+    // 2. Delete Projects where user is the developer
+    await Project.deleteMany({ developer: userId });
+
+    // 3. Delete Job Listings posted by the user
+    await JobListing.deleteMany({ postedBy: userId });
+
+    // 4. Remove user from applicants list in all job listings
+    await JobListing.updateMany(
+      { applicants: userId },
+      { $pull: { applicants: userId } }
+    );
+
+    // 5. Log activity (before user is gone)
+    const me = await User.findById(userId);
+    await Activity.create({
+      user: userId,
+      userName: me ? me.name : 'Unknown',
+      action: 'ACCOUNT_DELETED',
+      target: me ? me.email : ''
+    });
+
+    // 6. Finally, delete the User
+    await User.findByIdAndDelete(userId);
+
+    res.json({ message: "Account and all associated data deleted successfully" });
   } catch (err) {
     next(err);
   }

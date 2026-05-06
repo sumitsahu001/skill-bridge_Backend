@@ -65,6 +65,7 @@ app.use("/api/profile", require("./routes/profile.routes"));
 app.use("/api/projects", require("./routes/project.routes"));
 app.use("/api/jobs",    require("./routes/jobListing.routes"));
 app.use("/api/stats",  require("./routes/stats.routes"));
+app.use("/api/admin",  require("./routes/admin.routes"));
 
 // 404 + errors
 app.use(notFound);
