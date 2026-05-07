@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const auth = require("../middleware/auth");
 const Project = require("../models/Project");
+const Activity = require("../models/Activity");
 
 // @route   GET /api/projects/my-gigs
 // @desc    Get all projects for the logged-in developer
@@ -59,6 +60,15 @@ router.patch("/:id/status", auth, async (req, res) => {
 
     project.status = status;
     await project.save();
+
+    // Log Activity
+    await Activity.create({
+      user: req.user.id,
+      userName: req.user.name,
+      action: status === 'Completed' ? 'STATUS_CHANGED' : 'JOB_CLOSED', // Reusing existing enums or we could add more
+      target: `Project: ${project.title}`,
+      metadata: { newStatus: status }
+    });
 
     res.json(project);
   } catch (err) {

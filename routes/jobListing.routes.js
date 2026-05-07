@@ -274,4 +274,101 @@ router.get("/my/posted", auth, requireRole("client"), async (req, res) => {
   }
 });
 
+/**
+ * @route   PUT /api/jobs/:id
+ * @desc    Update a job listing
+ * @access  Private — client who posted it only
+ */
+router.put(
+  "/:id",
+  auth,
+  requireRole("client"),
+  listingRules,
+  runValidation,
+  async (req, res) => {
+    try {
+      let listing = await JobListing.findById(req.params.id);
+
+      if (!listing) {
+        return res.status(404).json({ message: "Job listing not found" });
+      }
+
+      // Only the client who posted it can update it
+      if (listing.postedBy.toString() !== req.user.id) {
+        return res.status(403).json({ message: "Not authorized to update this listing" });
+      }
+
+      const { title, description, company, budget, budgetType, skills, location, deadline, status } =
+        req.body;
+
+      listing = await JobListing.findByIdAndUpdate(
+        req.params.id,
+        {
+          $set: {
+            title,
+            description,
+            company,
+            budget,
+            budgetType,
+            skills,
+            location,
+            deadline,
+            status: status || listing.status
+          },
+        },
+        { new: true }
+      );
+
+      // log activity
+      await Activity.create({
+        user: req.user.id,
+        userName: req.user.name,
+        action: 'JOB_UPDATED',
+        target: title
+      });
+
+      res.json(listing);
+    } catch (err) {
+      console.error(err.message);
+      res.status(500).json({ message: "Server Error" });
+    }
+  }
+);
+
+/**
+ * @route   DELETE /api/jobs/:id
+ * @desc    Delete a job listing
+ * @access  Private — client who posted it only
+ */
+router.delete("/:id", auth, requireRole("client"), async (req, res) => {
+  try {
+    const listing = await JobListing.findById(req.params.id);
+
+    if (!listing) {
+      return res.status(404).json({ message: "Job listing not found" });
+    }
+
+    // Only the client who posted it can delete it
+    if (listing.postedBy.toString() !== req.user.id) {
+      return res.status(403).json({ message: "Not authorized to delete this listing" });
+    }
+
+    const title = listing.title;
+    await JobListing.findByIdAndDelete(req.params.id);
+
+    // log activity
+    await Activity.create({
+      user: req.user.id,
+      userName: req.user.name,
+      action: 'JOB_DELETED',
+      target: title
+    });
+
+    res.json({ message: "Job listing deleted successfully" });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).json({ message: "Server Error" });
+  }
+});
+
 module.exports = router;

@@ -13,7 +13,7 @@ const ActivitySchema = new mongoose.Schema({
   action: {
     type: String,
     required: true,
-    enum: ['USER_REGISTERED', 'JOB_POSTED', 'APPLICATION_SUBMITTED', 'ACCOUNT_DELETED', 'JOB_CLOSED', 'STATUS_CHANGED']
+    enum: ['USER_REGISTERED', 'JOB_POSTED', 'APPLICATION_SUBMITTED', 'ACCOUNT_DELETED', 'JOB_CLOSED', 'STATUS_CHANGED', 'JOB_UPDATED', 'JOB_DELETED']
   },
   target: {
     type: String, // e.g. Job Title, User Email

@@ -72,62 +72,16 @@ router.get('/activities', async (req, res) => {
 });
 
 /**
- * @route GET /api/admin/jobs
- * @desc Get all jobs with recruiter details and applicant counts
- */
-router.get('/jobs', async (req, res) => {
-  try {
-    const { page = 1, limit = 10 } = req.query;
-
-    const jobs = await JobListing.find()
-      .populate('recruiter', 'name email')
-      .sort({ createdAt: -1 })
-      .skip((page - 1) * limit)
-      .limit(parseInt(limit));
-
-    // Map to include applicant count
-    const jobsWithCounts = jobs.map(job => ({
-      ...job._doc,
-      applicantCount: job.applicants ? job.applicants.length : 0
-    }));
-
-    const total = await JobListing.countDocuments();
-
-    res.json({
-      jobs: jobsWithCounts,
-      total,
-      pages: Math.ceil(total / limit)
-    });
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-});
-
-/**
- * @route GET /api/admin/jobs/:id
- * @desc Get specific job details with full applicant details
- */
-router.get('/jobs/:id', async (req, res) => {
-  try {
-    const job = await JobListing.findById(req.params.id)
-      .populate('recruiter', 'name email mobile')
-      .populate('applicants', 'name email mobile city');
-
-    if (!job) return res.status(404).json({ message: 'Job not found' });
-
-    res.json(job);
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-});
-
-/**
  * @route GET /api/admin/insights/jobs
  * @desc Get high-level summary of job activity (postings and applications)
  */
 router.get('/insights/jobs', async (req, res) => {
   try {
-    const totalJobs = await JobListing.countDocuments();
+    const [totalJobs, totalUsers, totalApps] = await Promise.all([
+      JobListing.countDocuments(),
+      User.countDocuments(),
+      Activity.countDocuments({ action: 'APPLICATION_SUBMITTED' })
+    ]);
     
     // Get recent postings from Activity logs
     const recentPostings = await Activity.find({ action: 'JOB_POSTED' })
@@ -141,6 +95,8 @@ router.get('/insights/jobs', async (req, res) => {
 
     res.json({
       totalJobs,
+      totalUsers,
+      totalApps,
       recentPostings: recentPostings.map(p => ({
         recruiter: p.userName,
         jobTitle: p.target,
@@ -150,7 +106,8 @@ router.get('/insights/jobs', async (req, res) => {
         applicant: a.userName,
         jobTitle: a.target,
         time: a.createdAt
-      }))
+      })),
+      timestamp: new Date()
     });
   } catch (err) {
     res.status(500).json({ message: err.message });
